@@ -1,52 +1,59 @@
-version: '3.6'
+version: '3'
 services:
   web:
     image: httpd
+    container_name: web
     ports:
       - "80:80"
-    links:
-      - fluentd
     logging:
       driver: "fluentd"
       options:
         fluentd-address: localhost:24224
         tag: httpd.access
+    depends_on:
+      - fluentd
     networks:
-      - logging
+      - efk
   fluentd:
-    image: fluentd
+    image: fluentd:efk
+    container_name: fluentd
     build:
-      context: ./fluent/.
+      context: ./fluentd
+    environment:
+      FLUENTD_CONF: fluentd.conf
     volumes:
-      - ./fluent:/fluentd/etc
+      - ./fluentd/conf/fluentd.conf:/fluentd/etc/fluentd.conf
     ports:
-#      - "9880:9880"
+      - "9880:9880"
       - "24224:24224"
       - "24224:24224/udp"
-#    logging:
-#      driver: "json-file"
-#      options:
-#        max-size: 100m
-#        max-file: "5"
     networks:
-      - logging
+      - efk
   elasticsearch:
-    image: elasticsearch
-#    image: docker.elastic.co/elasticsearch/elasticsearch:5.3.0
-#    expose:
-#      - 9200
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.1
+    container_name: elasticsearch
+    environment:
+      discovery.type: single-node
     ports:
       - "9200:9200"
+      - "9300:9300"
     networks:
-      - logging
+      - efk
+    volumes:
+      - es-data01:/usr/share/elasticsearch/data
   kibana:
-    image: kibana
-#    image: docker.elastic.co/kibana/kibana:5.3.0
+    image: docker.elastic.co/kibana/kibana:7.5.1
+    container_name: kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
     ports:
       - "5601:5601"
     networks:
-      - logging
+      - efk
 
 networks:
-  logging:
+  efk:
     driver: bridge
+
+volumes:
+  es-data01:
